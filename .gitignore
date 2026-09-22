@@ -1,0 +1,114 @@
+# ================================
+# Python
+# ================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ================================
+# Virtual environments
+# ================================
+
+.venv/
+venv/
+env/
+ENV/
+
+# ================================
+# Testing / coverage
+# ================================
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ================================
+# Type checking / linting
+# ================================
+
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# ================================
+# Packaging
+# ================================
+
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+
+# PyInstaller
+*.manifest
+*.spec.bak
+
+# ================================
+# IDEs / editors
+# ================================
+
+.vscode/
+.idea/
+*.iml
+
+# ================================
+# OS files
+# ================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# ================================
+# Environment / secrets
+# ================================
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ================================
+# Logs
+# ================================
+
+*.log
+logs/
+
+# ================================
+# Temporary files
+# ================================
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# ================================
+# LANSpeed local files
+# ================================
+
+# Local test output
+test-results/
+coverage/
+
+# Local development configuration
+local/
