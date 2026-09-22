@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lanspeed"
+version = "0.1.0"
+description = "A lightweight LAN throughput and latency tester."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "ItsWanheda" }
+]
+keywords = ["lan", "network", "speed-test", "throughput", "latency", "networking"]
+
+[project.scripts]
+lanspeed = "lan_speed_tester.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
