@@ -1,4 +1,4 @@
-"""
+""""
 Command-line interface for LAN Speed Tester.
 """
 
@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from . import __version__
 from .client import DEFAULT_PORT, run_speed_test
 from .metrics import format_mbps, format_mbs
 from .server import run_server
@@ -17,6 +18,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lanspeed",
         description="LANSpeed - Local Network Speed Tester",
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show the installed LANSpeed version and exit.",
     )
 
     subparsers = parser.add_subparsers(
@@ -155,7 +163,7 @@ def run_test_command(args: argparse.Namespace) -> int:
 
     if result.download is not None:
         print(
-            f"Download: "
+            f"Download:  "
             f"{format_mbps(result.download.throughput_mbps)} "
             f"({format_mbs(result.download.throughput_mbs)})"
         )
@@ -189,3 +197,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+"
