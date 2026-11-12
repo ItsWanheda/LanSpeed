@@ -21,6 +21,10 @@ It uses a small **TCP client/server architecture** and focuses on being simple, 
 * 📡 **TCP request/response latency measurement**
 * 📊 **Repeated RTT samples, percentiles, and jitter statistics**
 * 📉 **UDP packet-loss and RTT-jitter diagnostics**
+* 🧵 **Concurrent multi-stream TCP benchmarks**
+* 🔁 **Repeatable benchmark runs with aggregate statistics**
+* 🎚️ **Quick, normal, and intensive benchmark profiles**
+* 📈 **Live transfer progress in the terminal**
 * ⬇️ **Download throughput testing**
 * ⬆️ **Upload throughput testing**
 * 🔌 **Explicit TCP message framing**
@@ -347,7 +351,42 @@ Sends paced UDP probe datagrams and reports sent, received, and lost packets, pa
 py -m lan_speed_tester test 192.168.1.34 --duration 10
 ```
 
-The complete TCP test measures request/response latency, download throughput, and upload throughput.
+The complete TCP test measures request/response latency, download throughput, and upload throughput. Transfer progress is displayed live in the terminal.
+
+---
+
+## 🧵 Advanced Multi-Stream Benchmark
+
+```powershell
+py -m lan_speed_tester benchmark 192.168.1.34
+```
+
+The benchmark command runs concurrent TCP streams, repeats the benchmark, and reports aggregate plus per-stream download/upload throughput.
+
+### Built-in Profiles
+
+| Profile | Streams | Runs | Duration per direction |
+| --- | ---: | ---: | ---: |
+| `quick` | 2 | 1 | 2 seconds |
+| `normal` | 4 | 3 | 5 seconds |
+| `intensive` | 8 | 5 | 10 seconds |
+
+Choose a profile:
+
+```powershell
+py -m lan_speed_tester benchmark 192.168.1.34 --profile quick
+py -m lan_speed_tester benchmark 192.168.1.34 --profile intensive
+```
+
+Override profile settings when needed:
+
+```powershell
+py -m lan_speed_tester benchmark 192.168.1.34 --profile normal --streams 6 --repeat 2 --duration 4
+```
+
+Each stream uses its own TCP connection. All download streams run concurrently, followed by all upload streams. Connection setup is excluded from the transfer timing. The reported aggregate throughput is calculated from the combined bytes transferred divided by the wall-clock duration of each phase.
+
+Use `--json` to export all runs, per-stream metrics, and min/max/average/median summaries as JSON.
 
 ---
 
@@ -498,14 +537,16 @@ lanspeed/
 │       ├── protocol.py
 │       ├── metrics.py
 │       ├── diagnostics.py
-│       └── udp.py
+│       ├── udp.py
+│       └── benchmark.py
 │
 ├── tests/
 │   ├── test_cli.py
 │   ├── test_package.py
 │   ├── test_diagnostics.py
 │   ├── test_udp.py
-│   └── test_server.py
+│   ├── test_server.py
+│   └── test_benchmark.py
 │
 ├── .github/
 │   └── workflows/
@@ -631,13 +672,14 @@ If two devices can access the Internet but cannot communicate directly, check th
 * [x] JSON output for TCP test, ping, and UDP test
 * [x] Automated tests for statistics and UDP diagnostics
 
-## 🚧 v0.3.0 — Advanced Benchmarking
+## ✅ v0.3.0 — Advanced Benchmarking
 
-* [ ] Multi-stream TCP throughput testing
-* [ ] Repeated benchmark runs
-* [ ] Quick, normal, and intensive test profiles
-* [ ] Live transfer progress
-* [ ] Aggregate and per-stream throughput reports
+* [x] Multi-stream TCP throughput testing
+* [x] Repeated benchmark runs
+* [x] Quick, normal, and intensive test profiles
+* [x] Live transfer progress
+* [x] Aggregate and per-stream throughput reports
+* [x] JSON benchmark suites with min/max/average/median summaries
 
 ## 🚧 v0.4.0 — Reporting & Network Intelligence
 
