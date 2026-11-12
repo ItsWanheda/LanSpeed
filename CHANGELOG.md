@@ -6,6 +6,51 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ---
 
+## [0.2.0] — 2026-11-12
+
+> 📡 **Network Diagnostics**
+
+This release extends LANSpeed beyond its initial TCP throughput test with UDP diagnostics and repeatable latency measurements. The existing framed TCP control and transfer protocol remains unchanged.
+
+### ✨ Added
+
+#### 📉 UDP Diagnostics
+* UDP echo responder started alongside the existing TCP server.
+* UDP probe command with configurable probe count, interval, and response timeout.
+* Sent, received, lost, and packet-loss percentage metrics.
+* UDP RTT minimum, maximum, average, median, p95, and p99 statistics.
+* RTT jitter calculated as the mean absolute difference between consecutive successful RTT samples.
+
+#### 📡 Repeated TCP Latency
+* New `ping` command for repeated LANSpeed request/response RTT samples.
+* Continuous mode with `--count 0` and graceful Ctrl+C handling.
+* Latency summary statistics and jitter.
+* Explicit distinction between LANSpeed TCP RTT and ICMP echo ping.
+
+#### 🧾 Output and Testing
+* JSON output for the complete TCP test, repeated TCP ping, and UDP diagnostics.
+* Automated tests for latency statistics, jitter calculations, CLI arguments, and the local UDP responder.
+
+### 🔧 Changed
+
+* The server now starts the TCP service and UDP diagnostic responder on the same numeric port using their separate transport protocols.
+* Project metadata and documentation now require Python 3.10 or newer, matching language features already used by the codebase.
+* Updated CLI tests to match the actual default TCP port and test duration.
+
+### 🛠️ Fixed
+
+* Implemented the previously documented `test --json` option.
+* Removed outdated README examples for individual download/upload CLI commands that were not implemented.
+* Expanded project structure and roadmap documentation for the upcoming 0.3.0 and 0.4.0 releases.
+
+### 🔒 Compatibility Notes
+
+* The existing TCP message framing and command flow are unchanged.
+* UDP diagnostics require both client and server to run v0.2.0 or newer.
+* The `ping` command measures LANSpeed TCP request/response RTT; it does not send ICMP echo packets.
+
+---
+
 ## [0.1.0] — 2026-09-22
 
 > 🎉 **Initial public release**
@@ -260,3 +305,5 @@ Changes made after `v0.1.0` and before the next release will be documented here.
 ---
 
 [0.1.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.1.0
+
+[0.2.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.2.0

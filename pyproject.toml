@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lanspeed"
-version = "0.1.0"
-description = "A lightweight LAN throughput and latency tester."
+version = "0.2.0"
+description = "A lightweight LAN network diagnostics and performance testing tool."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "ItsWanheda" }
 ]
-keywords = ["lan", "network", "speed-test", "throughput", "latency", "networking"]
+keywords = ["lan", "network", "speed-test", "throughput", "latency", "udp", "packet-loss", "jitter", "networking"]
 
 [project.scripts]
 lanspeed = "lan_speed_tester.cli:main"

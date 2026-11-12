@@ -1,13 +1,13 @@
 # ⚡ LANSpeed
 
-> **Lightweight LAN throughput & latency testing from the terminal.**
+> **Lightweight LAN diagnostics and performance testing from the terminal.**
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python\&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python\&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey)](#requirements)
 [![Protocol](https://img.shields.io/badge/Protocol-TCP-orange)](#how-it-works)
 
-**LANSpeed** is a lightweight, Python-based network diagnostic tool for measuring **latency, download throughput, and upload throughput** between devices on the same local network.
+**LANSpeed** is a lightweight, Python-based network diagnostic tool for measuring **TCP latency, download and upload throughput, UDP packet loss, and RTT jitter** between devices on the same local network.
 
 It uses a small **TCP client/server architecture** and focuses on being simple, transparent, portable, and easy to integrate into scripts or other tools.
 
@@ -18,7 +18,9 @@ It uses a small **TCP client/server architecture** and focuses on being simple, 
 ## ✨ Features
 
 * 🚀 **TCP client/server architecture**
-* 📡 **LAN latency measurement**
+* 📡 **TCP request/response latency measurement**
+* 📊 **Repeated RTT samples, percentiles, and jitter statistics**
+* 📉 **UDP packet-loss and RTT-jitter diagnostics**
 * ⬇️ **Download throughput testing**
 * ⬆️ **Upload throughput testing**
 * 🔌 **Explicit TCP message framing**
@@ -53,7 +55,7 @@ The **server** listens for incoming TCP connections, while the **client** connec
 │  • Calculate metrics    │
 └────────────┬────────────┘
              │
-             │ TCP :8765
+             │ TCP / UDP :8765
              │
              ▼
 ┌─────────────────────────┐
@@ -144,7 +146,7 @@ This explicit framing allows LANSpeed to correctly handle:
 
 LANSpeed requires:
 
-* **Python 3.9 or newer**
+* **Python 3.10 or newer**
 * Two devices connected to the same LAN
 * Network connectivity between the devices
 * Firewall access to the LANSpeed server port
@@ -208,7 +210,7 @@ py -m lan_speed_tester server
 The server should display:
 
 ```text
-LANSpeed server listening on 0.0.0.0:8765
+LANSpeed server listening on 0.0.0.0:8765 (TCP + UDP)
 Press Ctrl+C to stop.
 ```
 
@@ -311,37 +313,41 @@ Results
 
 ---
 
-# 🧪 Individual Tests
+# 🧪 Individual Diagnostics
 
-You can also run individual measurements.
-
-## 📡 Latency
+## 📡 Repeated TCP Latency
 
 ```powershell
-py -m lan_speed_tester ping 192.168.1.34
+py -m lan_speed_tester ping 192.168.1.34 --count 10 --interval 1
 ```
 
-Measures the response time between the client and server.
+Collects repeated request/response RTT samples over the LANSpeed TCP connection and reports minimum, average, median, maximum, p95, p99, and jitter.
+
+> **Important:** This is an application-level TCP RTT measurement, not the operating system's ICMP `ping` command.
+
+Use `--count 0` to continue until you press `Ctrl+C`. JSON output is available with `--json`.
 
 ---
 
-## ⬇️ Download
+## 📉 UDP Packet Loss and Jitter
 
 ```powershell
-py -m lan_speed_tester download 192.168.1.34
+py -m lan_speed_tester udp-test 192.168.1.34 --probes 100 --interval 0.02
 ```
 
-Measures how quickly the client can receive data from the server.
+Sends paced UDP probe datagrams and reports sent, received, and lost packets, packet-loss percentage, RTT statistics, and RTT jitter. The server must be running a LANSpeed version that supports the UDP responder.
+
+`--timeout` controls how long the client waits for responses after the final probe. Use `--json` for machine-readable output.
 
 ---
 
-## ⬆️ Upload
+## 🚀 TCP Throughput
 
 ```powershell
-py -m lan_speed_tester upload 192.168.1.34
+py -m lan_speed_tester test 192.168.1.34 --duration 10
 ```
 
-Measures how quickly the client can send data to the server.
+The complete TCP test measures request/response latency, download throughput, and upload throughput.
 
 ---
 
@@ -415,13 +421,23 @@ Configuration defaults are intentionally conservative and can be adjusted as the
 
 LANSpeed separates network communication from metric calculation.
 
-The metrics layer is responsible for processing measurements such as:
+### TCP latency
 
-### Latency
+TCP latency is measured as the elapsed time for a LANSpeed request and its response over an established TCP connection. It is not ICMP echo latency.
+
+### UDP packet loss
 
 ```text
-Latency ≈ response time between client and server
+Packet loss (%) = (sent probes - received probes) / sent probes × 100
 ```
+
+### RTT jitter
+
+LANSpeed reports RTT jitter as the **mean absolute difference between consecutive successful RTT samples**, ordered by probe sequence. This is a round-trip variation metric and should not be confused with one-way RTP interarrival jitter.
+
+### Latency statistics
+
+Repeated samples include minimum, maximum, average, median, p95, and p99 values. Percentiles use the nearest-rank method.
 
 ### Throughput
 
@@ -480,16 +496,26 @@ lanspeed/
 │       ├── client.py
 │       ├── server.py
 │       ├── protocol.py
-│       └── metrics.py
+│       ├── metrics.py
+│       ├── diagnostics.py
+│       └── udp.py
 │
 ├── tests/
 │   ├── test_cli.py
-│   └── test_package.py
+│   ├── test_package.py
+│   ├── test_diagnostics.py
+│   ├── test_udp.py
+│   └── test_server.py
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml
 │
 ├── launcher.py
 ├── pyproject.toml
 ├── README.md
 ├── CHANGELOG.md
+├── RELEASING.md
 ├── SECURITY.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
@@ -586,34 +612,41 @@ If two devices can access the Internet but cannot communicate directly, check th
 
 # 🗺️ Roadmap
 
-## ✅ Core
+## ✅ v0.1.0 — Core TCP Tester
 
-* [x] Project foundation
-* [x] Python package configuration
-* [x] TCP client/server architecture
+* [x] Python package and CLI foundation
+* [x] TCP client/server architecture and framed protocol
 * [x] TCP latency measurement
-* [x] Download throughput testing
-* [x] Upload throughput testing
-* [x] Explicit TCP transfer framing
-* [x] Configurable test duration
-* [x] Configurable transfer chunk size
-* [x] JSON output
-* [x] PyInstaller client build
-* [x] Security and contribution documentation
+* [x] Download and upload throughput testing
+* [x] JSON-ready result models
+* [x] PyInstaller-compatible client entry point
 
-## 🚧 Planned
+## ✅ v0.2.0 — Network Diagnostics
 
-* [ ] Rich terminal output
-* [ ] Improved JSON/CSV export
-* [ ] UDP packet-loss testing
-* [ ] Jitter measurement
-* [ ] Multi-stream throughput
+* [x] UDP echo responder alongside the TCP server
+* [x] UDP packet-loss measurement
+* [x] UDP RTT and jitter statistics
+* [x] Repeated TCP RTT command
+* [x] Min, max, average, median, p95, and p99 statistics
+* [x] JSON output for TCP test, ping, and UDP test
+* [x] Automated tests for statistics and UDP diagnostics
+
+## 🚧 v0.3.0 — Advanced Benchmarking
+
+* [ ] Multi-stream TCP throughput testing
+* [ ] Repeated benchmark runs
+* [ ] Quick, normal, and intensive test profiles
+* [ ] Live transfer progress
+* [ ] Aggregate and per-stream throughput reports
+
+## 🚧 v0.4.0 — Reporting & Network Intelligence
+
+* [ ] Persistent local test history
+* [ ] Compare historical benchmark runs
+* [ ] CSV and expanded JSON export
+* [ ] Standalone HTML reports
 * [ ] Network interface discovery
-* [ ] Historical test results
-* [ ] More detailed network statistics
-* [ ] Automated test reporting
-* [ ] Expanded protocol test coverage
-* [ ] Improved cross-platform packaging
+* [ ] Platform-aware local IP and interface details
 
 The roadmap is subject to change as LANSpeed develops.
 
@@ -654,6 +687,8 @@ Bug reports, documentation improvements, testing, protocol improvements, perform
 Development history and notable releases are documented in:
 
 **[📋 CHANGELOG.md](CHANGELOG.md)**
+
+For branch naming, commit conventions, release checks, and Git tags, see **[📦 RELEASING.md](RELEASING.md)**.
 
 ---
 

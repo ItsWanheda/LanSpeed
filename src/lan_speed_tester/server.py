@@ -23,6 +23,8 @@ import socket
 import threading
 from typing import Optional
 
+from .udp import UDPEchoServer
+
 from .protocol import (
     COMMAND_DOWNLOAD,
     COMMAND_HELLO,
@@ -56,8 +58,8 @@ class LANSpeedServer:
         port: int = DEFAULT_PORT,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
     ) -> None:
-        if not 1 <= port <= 65535:
-            raise ValueError("port must be between 1 and 65535")
+        if not 0 <= port <= 65535:
+            raise ValueError("port must be between 0 and 65535")
 
         if chunk_size <= 0:
             raise ValueError("chunk_size must be greater than zero")
@@ -70,6 +72,7 @@ class LANSpeedServer:
         self.chunk_size = chunk_size
 
         self._server_socket: Optional[socket.socket] = None
+        self._udp_server: Optional[UDPEchoServer] = None
         self._running = False
 
     def start(self) -> None:
@@ -90,12 +93,28 @@ class LANSpeedServer:
         server_socket.listen(16)
         server_socket.settimeout(1.0)
 
+        # TCP and UDP use separate transport namespaces, so both services
+        # can safely listen on the same numeric port.
+        bound_port = int(server_socket.getsockname()[1])
+        udp_server = UDPEchoServer(
+            host=self.host,
+            port=bound_port,
+        )
+
+        try:
+            udp_server.start()
+        except OSError:
+            server_socket.close()
+            raise
+
+        self.port = bound_port
         self._server_socket = server_socket
+        self._udp_server = udp_server
         self._running = True
 
         print(
             f"LANSpeed server listening on "
-            f"{self.host}:{self.port}"
+            f"{self.host}:{self.port} (TCP + UDP)"
         )
         print("Press Ctrl+C to stop.")
 
@@ -137,6 +156,11 @@ class LANSpeedServer:
                 server_socket.close()
             except OSError:
                 pass
+
+        udp_server = self._udp_server
+        self._udp_server = None
+        if udp_server is not None:
+            udp_server.stop()
 
     def handle_client(
         self,
