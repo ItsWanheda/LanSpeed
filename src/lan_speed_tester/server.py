@@ -58,8 +58,8 @@ class LANSpeedServer:
         port: int = DEFAULT_PORT,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
     ) -> None:
-        if not 1 <= port <= 65535:
-            raise ValueError("port must be between 1 and 65535")
+        if not 0 <= port <= 65535:
+            raise ValueError("port must be between 0 and 65535")
 
         if chunk_size <= 0:
             raise ValueError("chunk_size must be greater than zero")
