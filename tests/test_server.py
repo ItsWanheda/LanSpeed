@@ -15,9 +15,10 @@ class ServerDiagnosticsIntegrationTests(unittest.TestCase):
 
         try:
             deadline = time.monotonic() + 3.0
-            while server.port == 0 and time.monotonic() < deadline:
+            while not server._running and time.monotonic() < deadline:
                 time.sleep(0.01)
 
+            self.assertTrue(server._running)
             self.assertGreater(server.port, 0)
 
             udp_result = run_udp_probe_test(
