@@ -55,7 +55,7 @@ BENCHMARK_PROFILES: dict[str, BenchmarkProfile] = {
         duration_seconds=10.0,
         chunk_size=1024 * 1024,
     ),
-)
+}
 
 
 ProgressCallback = Callable[[str, int, int, float], None]
