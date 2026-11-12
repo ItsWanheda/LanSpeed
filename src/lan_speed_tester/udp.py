@@ -46,9 +46,13 @@ class UDPEchoServer:
             raise RuntimeError("UDP echo server is already running")
 
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        udp_socket.bind((self.host, self.port))
-        udp_socket.settimeout(0.2)
+        try:
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            udp_socket.bind((self.host, self.port))
+            udp_socket.settimeout(0.2)
+        except OSError:
+            udp_socket.close()
+            raise
 
         self._socket = udp_socket
         self.port = int(udp_socket.getsockname()[1])
@@ -216,10 +220,7 @@ def run_udp_probe_test(
                 if sequence == probe_count:
                     final_deadline = sent_at[sequence - 1] + timeout_seconds
                 else:
-                    next_send_at = max(
-                        next_send_at + interval_seconds,
-                        time.perf_counter(),
-                    )
+                    next_send_at = sent_at[sequence - 1] + interval_seconds
                 continue
 
             if sequence < probe_count:
