@@ -55,7 +55,7 @@ The **server** listens for incoming TCP connections, while the **client** connec
 │  • Calculate metrics    │
 └────────────┬────────────┘
              │
-             │ TCP :8765
+             │ TCP / UDP :8765
              │
              ▼
 ┌─────────────────────────┐
@@ -504,12 +504,18 @@ lanspeed/
 │   ├── test_cli.py
 │   ├── test_package.py
 │   ├── test_diagnostics.py
-│   └── test_udp.py
+│   ├── test_udp.py
+│   └── test_server.py
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml
 │
 ├── launcher.py
 ├── pyproject.toml
 ├── README.md
 ├── CHANGELOG.md
+├── RELEASING.md
 ├── SECURITY.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
@@ -681,6 +687,8 @@ Bug reports, documentation improvements, testing, protocol improvements, perform
 Development history and notable releases are documented in:
 
 **[📋 CHANGELOG.md](CHANGELOG.md)**
+
+For branch naming, commit conventions, release checks, and Git tags, see **[📦 RELEASING.md](RELEASING.md)**.
 
 ---
 
