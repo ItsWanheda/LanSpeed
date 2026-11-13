@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lanspeed"
-version = "0.3.0"
-description = "A lightweight LAN diagnostics and advanced TCP benchmarking tool."
+version = "0.4.0"
+description = "A lightweight LAN diagnostics, benchmarking, and reporting toolkit."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "ItsWanheda" }
 ]
-keywords = ["lan", "network", "speed-test", "throughput", "latency", "udp", "packet-loss", "jitter", "benchmark", "multi-stream", "networking"]
+keywords = ["lan", "network", "speed-test", "throughput", "latency", "udp", "packet-loss", "jitter", "benchmark", "multi-stream", "networking", "history", "reports", "interfaces"]
 
-[project.scripts]
+[project.optional-dependencies]\nnetwork = ["psutil>=5.9"]\n\n[project.scripts]
 lanspeed = "lan_speed_tester.cli:main"
 
 [tool.setuptools.packages.find]
