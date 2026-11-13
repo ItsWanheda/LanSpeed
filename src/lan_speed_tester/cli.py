@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 import threading
 import time
@@ -608,7 +609,7 @@ def _save_history(test_type: str, payload: dict) -> None:
     try:
         result_id = HistoryStore().save(test_type, payload)
         print(f"Saved to history as #{result_id}.", file=sys.stderr)
-    except (OSError, ValueError, TypeError, RuntimeError) as exc:
+    except (OSError, sqlite3.Error, ValueError, TypeError, RuntimeError) as exc:
         print(f"Warning: could not save test history: {exc}", file=sys.stderr)
 
 
@@ -650,7 +651,7 @@ def run_history_command(args: argparse.Namespace) -> int:
         path = store.export(output, args.format)
         print(f"Exported {args.format.upper()} report to: {path}")
         return 0
-    except (OSError, ValueError, KeyError) as exc:
+    except (OSError, sqlite3.Error, ValueError, KeyError) as exc:
         print(f"Error: history operation failed: {exc}", file=sys.stderr)
         return 1
 
