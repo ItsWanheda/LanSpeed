@@ -29,6 +29,33 @@ class CLITests(unittest.TestCase):
         self.assertEqual(args.timeout, 1.0)
         self.assertEqual(args.port, 8765)
 
+    def test_benchmark_profile_defaults(self):
+        args = build_parser().parse_args(["benchmark", "192.168.1.10"])
+        self.assertEqual(args.profile, "normal")
+        self.assertIsNone(args.streams)
+        self.assertIsNone(args.repeat)
+        self.assertIsNone(args.duration)
+        self.assertIsNone(args.chunk_size)
+        self.assertFalse(args.json)
+
+    def test_benchmark_overrides(self):
+        args = build_parser().parse_args([
+            "benchmark",
+            "192.168.1.10",
+            "--profile",
+            "intensive",
+            "--streams",
+            "6",
+            "--repeat",
+            "2",
+            "--duration",
+            "1.5",
+        ])
+        self.assertEqual(args.profile, "intensive")
+        self.assertEqual(args.streams, 6)
+        self.assertEqual(args.repeat, 2)
+        self.assertEqual(args.duration, 1.5)
+
 
 if __name__ == "__main__":
     unittest.main()

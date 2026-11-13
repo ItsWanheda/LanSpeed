@@ -536,6 +536,9 @@ def run_speed_test(
     duration: float = DEFAULT_DURATION,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     timeout: float = DEFAULT_SOCKET_TIMEOUT,
+    progress_callback: Optional[
+        Callable[[str, int, float], None]
+    ] = None,
 ) -> SpeedTestResult:
     """Convenience function for a complete speed test."""
 
@@ -548,4 +551,4 @@ def run_speed_test(
     )
 
     with LANSpeedClient(config) as client:
-        return client.run()
+        return client.run(progress_callback=progress_callback)

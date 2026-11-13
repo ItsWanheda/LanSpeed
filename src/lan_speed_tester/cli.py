@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 import time
 
 from . import __version__
+from .benchmark import BENCHMARK_PROFILES, run_benchmark_suite
 from .client import (
     DEFAULT_PORT,
     ClientConfig,
@@ -15,7 +17,7 @@ from .client import (
     run_speed_test,
 )
 from .diagnostics import LatencyStatistics
-from .metrics import format_mbps, format_mbs
+from .metrics import format_bytes, format_mbps, format_mbs
 from .server import run_server
 from .udp import (
     DEFAULT_UDP_INTERVAL_SECONDS,
@@ -59,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     test_parser = subparsers.add_parser(
         "test",
-        help="Run a complete TCP latency and throughput test.",
+        help="Run a complete single-stream TCP speed test.",
     )
     test_parser.add_argument(
         "host",
@@ -150,6 +152,57 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the result as JSON.",
     )
 
+    benchmark_parser = subparsers.add_parser(
+        "benchmark",
+        help="Run a repeated multi-stream TCP throughput benchmark.",
+    )
+    benchmark_parser.add_argument(
+        "host",
+        help="LANSpeed server IP address or hostname.",
+    )
+    benchmark_parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    benchmark_parser.add_argument(
+        "--profile",
+        choices=tuple(BENCHMARK_PROFILES),
+        default="normal",
+        help="Preset settings (default: normal). Explicit options override the profile.",
+    )
+    benchmark_parser.add_argument(
+        "--streams",
+        type=int,
+        default=None,
+        help="Concurrent TCP streams (profile default when omitted).",
+    )
+    benchmark_parser.add_argument(
+        "--repeat",
+        type=int,
+        default=None,
+        help="Number of benchmark runs (profile default when omitted).",
+    )
+    benchmark_parser.add_argument(
+        "--duration",
+        type=float,
+        default=None,
+        help="Seconds per download/upload phase (profile default when omitted).",
+    )
+    benchmark_parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=None,
+        help="Transfer chunk size in bytes (profile default when omitted).",
+    )
+    benchmark_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=5.0,
+        help="Socket timeout in seconds (default: 5).",
+    )
+    benchmark_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print all runs and aggregate summaries as JSON.",
+    )
+
     return parser
 
 
@@ -165,33 +218,62 @@ def run_server_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _single_progress_callback(duration: float):
+    """Build a throttled, thread-safe transfer progress reporter."""
+
+    lock = threading.Lock()
+    last_update = 0.0
+
+    def report(direction: str, total_bytes: int, elapsed: float) -> None:
+        nonlocal last_update
+
+        now = time.monotonic()
+        with lock:
+            if now - last_update < 0.15 and elapsed < duration:
+                return
+            last_update = now
+            percent = min(100.0, max(0.0, elapsed / duration * 100.0))
+            sys.stdout.write(
+                f"\r{direction.title():8} {percent:5.1f}% "
+                f"| {format_bytes(total_bytes)} transferred"
+            )
+            sys.stdout.flush()
+
+    return report
+
+
 def run_test_command(args: argparse.Namespace) -> int:
-    """Run a complete TCP speed test."""
+    """Run a complete single-stream TCP speed test."""
 
     try:
+        if not args.json:
+            print(f"LANSpeed test: {args.host}:{args.port}")
+            print(f"Duration per direction: {args.duration:.1f}s")
+
         result = run_speed_test(
             host=args.host,
             port=args.port,
             duration=args.duration,
             chunk_size=args.chunk_size,
             timeout=args.timeout,
+            progress_callback=(
+                None if args.json else _single_progress_callback(args.duration)
+            ),
         )
     except KeyboardInterrupt:
         print("\nTest cancelled.")
         return 130
     except (ConnectionError, OSError, ValueError, RuntimeError) as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"\nError: {exc}", file=sys.stderr)
         return 1
+
+    if not args.json:
+        print()
 
     if args.json:
         print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
         return 0
 
-    print()
-    print("LANSpeed")
-    print("=" * 40)
-    print(f"Server:   {args.host}:{args.port}")
-    print(f"Duration: {args.duration:.1f}s")
     print()
     print("Results")
     print("-" * 40)
@@ -333,9 +415,135 @@ def run_udp_test_command(args: argparse.Namespace) -> int:
         print(f"Median RTT:   {stats.median_ms:.2f} ms")
         print(f"Maximum RTT:  {stats.max_ms:.2f} ms")
         print(f"95th % RTT:   {stats.p95_ms:.2f} ms")
+        print(f"99th % RTT:   {stats.p99_ms:.2f} ms")
         print(f"Jitter:       {stats.jitter_ms:.2f} ms")
 
     print("-" * 40)
+    return 0
+
+
+def _benchmark_progress_callback(duration: float, stream_count: int):
+    """Build a throttled progress reporter for multi-stream benchmark runs."""
+
+    lock = threading.Lock()
+    last_update = 0.0
+
+    def report(
+        run_number: int,
+        run_count: int,
+        direction: str,
+        stream_id: int,
+        total_bytes: int,
+        elapsed: float,
+    ) -> None:
+        nonlocal last_update
+
+        now = time.monotonic()
+        with lock:
+            if now - last_update < 0.15 and elapsed < duration:
+                return
+            last_update = now
+            percent = min(100.0, max(0.0, elapsed / duration * 100.0))
+            sys.stdout.write(
+                f"\rRun {run_number}/{run_count} | "
+                f"{direction.title():8} | Stream {stream_id}/{stream_count} "
+                f"| {percent:5.1f}% | {format_bytes(total_bytes)}"
+            )
+            sys.stdout.flush()
+
+    return report
+
+
+def run_benchmark_command(args: argparse.Namespace) -> int:
+    """Run repeated multi-stream TCP throughput benchmarks."""
+
+    preset = BENCHMARK_PROFILES[args.profile]
+    streams = preset.streams if args.streams is None else args.streams
+    duration = (
+        preset.duration_seconds
+        if args.duration is None
+        else args.duration
+    )
+    repeats = preset.repeats if args.repeat is None else args.repeat
+
+    try:
+        if not args.json:
+            print(f"LANSpeed benchmark: {args.host}:{args.port}")
+            print(
+                f"Profile: {args.profile} | Streams: {streams} | "
+                f"Runs: {repeats} | Duration/direction: {duration:.1f}s"
+            )
+
+        result = run_benchmark_suite(
+            host=args.host,
+            port=args.port,
+            profile=args.profile,
+            stream_count=args.streams,
+            repeat_count=args.repeat,
+            duration_seconds=args.duration,
+            chunk_size=args.chunk_size,
+            timeout=args.timeout,
+            progress_callback=(
+                None
+                if args.json
+                else _benchmark_progress_callback(duration, streams)
+            ),
+        )
+    except KeyboardInterrupt:
+        print("\nBenchmark cancelled.")
+        return 130
+    except (ConnectionError, OSError, ValueError, RuntimeError) as exc:
+        print(f"\nError: benchmark failed: {exc}", file=sys.stderr)
+        return 1
+
+    if not args.json:
+        print()
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+        return 0
+
+    payload = result.to_dict()
+    summary = payload["summary"]
+
+    print()
+    print("Benchmark Summary")
+    print("=" * 72)
+    print(
+        "Download: "
+        f"avg {summary['download']['average_mbps']:.2f} Mbps | "
+        f"median {summary['download']['median_mbps']:.2f} Mbps | "
+        f"min {summary['download']['min_mbps']:.2f} Mbps | "
+        f"max {summary['download']['max_mbps']:.2f} Mbps"
+    )
+    print(
+        "Upload:   "
+        f"avg {summary['upload']['average_mbps']:.2f} Mbps | "
+        f"median {summary['upload']['median_mbps']:.2f} Mbps | "
+        f"min {summary['upload']['min_mbps']:.2f} Mbps | "
+        f"max {summary['upload']['max_mbps']:.2f} Mbps"
+    )
+
+    print()
+    print("Individual Runs")
+    for index, run in enumerate(result.runs, start=1):
+        print(
+            f"Run {index}: "
+            f"Download {run.download.throughput_mbps:.2f} Mbps | "
+            f"Upload {run.upload.throughput_mbps:.2f} Mbps"
+        )
+
+    if result.runs:
+        print()
+        print(f"Per-stream results (run {len(result.runs)}):")
+        for stream in result.runs[-1].streams:
+            print(
+                f"Stream {stream.stream_id}: "
+                f"Download {stream.download.throughput_mbps:.2f} Mbps | "
+                f"Upload {stream.upload.throughput_mbps:.2f} Mbps"
+            )
+
+    print("=" * 72)
     return 0
 
 
@@ -353,6 +561,8 @@ def main() -> int:
         return run_ping_command(args)
     if args.command == "udp-test":
         return run_udp_test_command(args)
+    if args.command == "benchmark":
+        return run_benchmark_command(args)
 
     parser.print_help()
     return 1

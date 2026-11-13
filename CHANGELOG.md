@@ -6,6 +6,58 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ---
 
+## [0.3.0] — 2026-11-12
+
+> 🧵 **Advanced Benchmarking**
+
+This release adds concurrent TCP throughput benchmarking, repeatable test suites, configurable workload profiles, and live terminal progress. The existing TCP and UDP diagnostic commands remain available.
+
+### ✨ Added
+
+#### 🧵 Multi-Stream TCP Benchmarking
+* Run multiple independent TCP client connections concurrently.
+* Measure download streams concurrently, followed by upload streams concurrently.
+* Preserve per-stream transfer metrics alongside aggregate throughput.
+* Calculate aggregate throughput using total transferred bytes divided by the wall-clock duration of each transfer phase.
+* Establish stream connections before transfer timing begins.
+
+#### 🔁 Repeated Benchmark Runs
+* Run a benchmark multiple times using the `--repeat` option.
+* Report individual run throughput.
+* Calculate minimum, maximum, average, and median throughput across runs.
+* Include all per-run and per-stream results in JSON output.
+
+#### 🎚️ Benchmark Profiles
+* `quick`: 2 streams, 1 run, 2 seconds per direction.
+* `normal`: 4 streams, 3 runs, 5 seconds per direction.
+* `intensive`: 8 streams, 5 runs, 10 seconds per direction.
+* Allow stream count, repeat count, duration, and chunk size to override profile defaults.
+
+#### 📈 Live Progress
+* Display transfer progress for the existing single-stream `test` command.
+* Display run, direction, stream, elapsed percentage, and transferred bytes during multi-stream benchmarks.
+* Keep JSON output free from terminal progress messages.
+
+#### 🧪 Testing
+* Add integration coverage for concurrent streams against a local LANSpeed server.
+* Verify per-stream byte totals match aggregate transferred bytes.
+* Verify repeated runs, profile ordering, validation, JSON serialization, and progress callbacks.
+
+### 🔧 Changed
+
+* Expose the existing client transfer progress callback through the `run_speed_test` convenience API.
+* Add the `benchmark` CLI command and update the README roadmap and usage guide.
+* Bump package metadata and runtime version to `0.3.0`.
+
+### 🔒 Compatibility Notes
+
+* Existing `server`, `test`, `ping`, and `udp-test` commands are retained.
+* The TCP wire protocol and UDP diagnostic datagram format are unchanged.
+* Multi-stream benchmarking opens multiple simultaneous TCP connections to the LANSpeed server. Choose stream counts appropriate for the server and network capacity.
+* Benchmark figures represent throughput observed by the LANSpeed client/server pair; they are not a promise of Internet speed or a substitute for testing the path to an external destination.
+
+---
+
 ## [0.2.0] — 2026-11-12
 
 > 📡 **Network Diagnostics**
@@ -307,3 +359,5 @@ Changes made after `v0.1.0` and before the next release will be documented here.
 [0.1.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.1.0
 
 [0.2.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.2.0
+
+[0.3.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.3.0
