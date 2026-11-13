@@ -315,6 +315,8 @@ def run_test_command(args: argparse.Namespace) -> int:
         print(f"\nError: {exc}", file=sys.stderr)
         return 1
 
+    _save_history("test", result.to_dict())
+
     if not args.json:
         print()
 
