@@ -6,6 +6,50 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ---
 
+## [0.4.0] — 2026-11-13
+
+> 🗂️ **Reporting & Network Intelligence**
+
+This release adds local result history, benchmark comparisons, report exports, and network interface discovery.
+
+### ✨ Added
+
+#### 🗃️ Persistent Test History
+* Automatically save successful TCP speed tests, repeated TCP latency checks, UDP diagnostics, and multi-stream benchmark suites.
+* Store structured result payloads in a local SQLite database at `~/.lanspeed/history.sqlite3`.
+* Add commands to list recent results and compare two saved entries.
+* Support an alternate database path for history operations.
+
+#### 📊 Reporting & Export
+* Export the complete history to JSON with the original structured result payloads.
+* Export history to CSV for spreadsheet tools and further analysis.
+* Generate a standalone HTML report that can be opened locally in a browser.
+* Compare download and upload throughput with absolute and percentage changes.
+
+#### 🖧 Network Interface Discovery
+* Add a local interface discovery command with JSON output.
+* Use Python standard-library discovery as a dependency-free fallback.
+* Add an optional `network` extra using psutil for per-interface IP addresses, MAC addresses, link state, MTU, and link speed when exposed by the operating system.
+* Clearly distinguish per-interface details from best-effort host address discovery.
+
+#### 🧪 Testing
+* Add tests for SQLite persistence, result comparison, JSON/CSV/HTML export, HTML escaping, CLI arguments, and interface discovery.
+
+### 🔧 Changed
+
+* Bump runtime and package metadata to `0.4.0`.
+* Expand README usage examples and mark the 0.4.0 roadmap milestone complete.
+
+### 🔒 Compatibility Notes
+
+* Existing TCP and UDP test protocols are unchanged.
+* History is stored locally on the client machine and is not synchronized between devices.
+* The standard-library interface fallback does not claim to map each discovered host address to a specific interface.
+* Detailed per-interface metadata requires installing the optional `network` extra.
+* No database service or mandatory third-party runtime dependency is introduced.
+
+---
+
 ## [0.3.0] — 2026-11-12
 
 > 🧵 **Advanced Benchmarking**
@@ -361,3 +405,5 @@ Changes made after `v0.1.0` and before the next release will be documented here.
 [0.2.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.2.0
 
 [0.3.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.3.0
+
+[0.4.0]: https://github.com/ItsWanheda/lanspeed/releases/tag/v0.4.0

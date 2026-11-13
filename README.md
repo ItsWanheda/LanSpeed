@@ -390,6 +390,55 @@ Use `--json` to export all runs, per-stream metrics, and min/max/average/median 
 
 ---
 
+# 🗂️ Test History & Reports
+
+Completed TCP tests, repeated latency checks, UDP diagnostics, and benchmark suites are saved automatically to a local SQLite database:
+
+`~/.lanspeed/history.sqlite3`
+
+The database stays on the machine running the LANSpeed client. No cloud account or external database is required.
+
+List recent results:
+
+```powershell
+py -m lan_speed_tester history list
+```
+
+Compare two saved result IDs:
+
+```powershell
+py -m lan_speed_tester history compare 3 8
+```
+
+Export the complete history:
+
+```powershell
+py -m lan_speed_tester history export --format csv --output history.csv
+py -m lan_speed_tester history export --format json --output history.json
+py -m lan_speed_tester history export --format html --output report.html
+```
+
+The HTML report is a self-contained file that can be opened locally in a browser. A custom SQLite database can be selected with `history --database PATH list` (the database option goes before the action).
+
+---
+
+# 🖧 Network Interface Discovery
+
+```powershell
+py -m lan_speed_tester interfaces
+py -m lan_speed_tester interfaces --json
+```
+
+LANSpeed uses the Python standard library by default to discover interface names and best-effort host addresses. For richer per-interface metadata (IP addresses, MAC address, link state, MTU, and link speed where the OS exposes them), install the optional network extra:
+
+```powershell
+py -m pip install ".[network]"
+```
+
+The optional extra uses `psutil`. Without it, LANSpeed deliberately does not guess which host address belongs to which interface.
+
+---
+
 # 🧾 JSON Output
 
 LANSpeed supports machine-readable JSON output for automation, scripts, monitoring systems, and data processing.
@@ -546,7 +595,10 @@ lanspeed/
 │   ├── test_diagnostics.py
 │   ├── test_udp.py
 │   ├── test_server.py
-│   └── test_benchmark.py
+│   ├── test_benchmark.py
+│   ├── test_history.py
+│   ├── test_interfaces.py
+│   └── test_reporting_cli.py
 │
 ├── .github/
 │   └── workflows/
@@ -681,14 +733,14 @@ If two devices can access the Internet but cannot communicate directly, check th
 * [x] Aggregate and per-stream throughput reports
 * [x] JSON benchmark suites with min/max/average/median summaries
 
-## 🚧 v0.4.0 — Reporting & Network Intelligence
+## ✅ v0.4.0 — Reporting & Network Intelligence
 
-* [ ] Persistent local test history
-* [ ] Compare historical benchmark runs
-* [ ] CSV and expanded JSON export
-* [ ] Standalone HTML reports
-* [ ] Network interface discovery
-* [ ] Platform-aware local IP and interface details
+* [x] Persistent local test history using SQLite
+* [x] Compare historical benchmark and test results
+* [x] CSV and expanded JSON export
+* [x] Standalone HTML reports
+* [x] Network interface discovery
+* [x] Platform-aware local IP and interface details (with optional psutil support)
 
 The roadmap is subject to change as LANSpeed develops.
 

@@ -5,7 +5,7 @@ from lan_speed_tester import __version__
 
 class PackageTests(unittest.TestCase):
     def test_version(self):
-        self.assertEqual(__version__, "0.3.0")
+        self.assertEqual(__version__, "0.4.0")
 
 
 if __name__ == "__main__":

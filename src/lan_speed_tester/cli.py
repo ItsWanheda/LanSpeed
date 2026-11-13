@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 import threading
 import time
@@ -17,6 +18,8 @@ from .client import (
     run_speed_test,
 )
 from .diagnostics import LatencyStatistics
+from .history import HistoryStore
+from .interfaces import discover_interfaces
 from .metrics import format_bytes, format_mbps, format_mbs
 from .server import run_server
 from .udp import (
@@ -203,6 +206,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print all runs and aggregate summaries as JSON.",
     )
 
+    history_parser = subparsers.add_parser(
+        "history",
+        help="Browse, compare, and export saved test results.",
+    )
+    history_actions = history_parser.add_subparsers(
+        dest="history_action",
+        required=True,
+    )
+    history_list = history_actions.add_parser("list", help="List saved results.")
+    history_list.add_argument("--limit", type=int, default=20)
+    history_compare = history_actions.add_parser(
+        "compare",
+        help="Compare two saved results by ID.",
+    )
+    history_compare.add_argument("first_id", type=int)
+    history_compare.add_argument("second_id", type=int)
+    history_export = history_actions.add_parser(
+        "export",
+        help="Export saved results to JSON, CSV, or standalone HTML.",
+    )
+    history_export.add_argument(
+        "--format",
+        choices=("json", "csv", "html"),
+        default="html",
+    )
+    history_export.add_argument(
+        "--output",
+        default=None,
+        help="Output path (default: lanspeed-history.<format>).",
+    )
+    history_parser.add_argument(
+        "--database",
+        default=None,
+        help="SQLite history database path (default: ~/.lanspeed/history.sqlite3).",
+    )
+
+    interface_parser = subparsers.add_parser(
+        "interfaces",
+        help="Discover local network interfaces and addresses.",
+    )
+    interface_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print interface details as JSON.",
+    )
+
     return parser
 
 
@@ -266,6 +315,8 @@ def run_test_command(args: argparse.Namespace) -> int:
     except (ConnectionError, OSError, ValueError, RuntimeError) as exc:
         print(f"\nError: {exc}", file=sys.stderr)
         return 1
+
+    _save_history("test", result.to_dict())
 
     if not args.json:
         print()
@@ -359,6 +410,8 @@ def run_ping_command(args: argparse.Namespace) -> int:
         "latency": statistics.to_dict(),
     }
 
+    _save_history("ping", result)
+
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
@@ -391,6 +444,8 @@ def run_udp_test_command(args: argparse.Namespace) -> int:
     except (OSError, ValueError) as exc:
         print(f"Error: UDP test failed: {exc}", file=sys.stderr)
         return 1
+
+    _save_history("udp-test", result.to_dict())
 
     if args.json:
         print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
@@ -496,6 +551,8 @@ def run_benchmark_command(args: argparse.Namespace) -> int:
         print(f"\nError: benchmark failed: {exc}", file=sys.stderr)
         return 1
 
+    _save_history("benchmark", result.to_dict())
+
     if not args.json:
         print()
 
@@ -547,6 +604,93 @@ def run_benchmark_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _save_history(test_type: str, payload: dict) -> None:
+    """Persist a successful test without making history failures fatal."""
+    try:
+        result_id = HistoryStore().save(test_type, payload)
+        print(f"Saved to history as #{result_id}.", file=sys.stderr)
+    except (OSError, sqlite3.Error, ValueError, TypeError, RuntimeError) as exc:
+        print(f"Warning: could not save test history: {exc}", file=sys.stderr)
+
+
+def run_history_command(args: argparse.Namespace) -> int:
+    """List, compare, or export locally stored test results."""
+    try:
+        store = HistoryStore(args.database)
+        if args.history_action == "list":
+            records = store.list_results(args.limit)
+            if not records:
+                print("No saved test results.")
+                return 0
+            print(
+                f"{'ID':>5}  {'DATE (UTC)':<22} {'TYPE':<12} "
+                f"{'HOST':<24} {'DOWNLOAD':>12} {'UPLOAD':>12}"
+            )
+            for item in records:
+                download = (
+                    f"{item['download_mbps']:.2f}"
+                    if item["download_mbps"] is not None else "-"
+                )
+                upload = (
+                    f"{item['upload_mbps']:.2f}"
+                    if item["upload_mbps"] is not None else "-"
+                )
+                print(
+                    f"{item['id']:>5}  {item['created_at']:<22} "
+                    f"{item['test_type']:<12} {(item['host'] or '-'):<24} "
+                    f"{download:>12} {upload:>12}"
+                )
+            return 0
+
+        if args.history_action == "compare":
+            comparison = store.compare(args.first_id, args.second_id)
+            print(json.dumps(comparison, indent=2, ensure_ascii=False))
+            return 0
+
+        output = args.output or f"lanspeed-history.{args.format}"
+        path = store.export(output, args.format)
+        print(f"Exported {args.format.upper()} report to: {path}")
+        return 0
+    except (OSError, sqlite3.Error, ValueError, KeyError) as exc:
+        print(f"Error: history operation failed: {exc}", file=sys.stderr)
+        return 1
+
+
+def run_interfaces_command(args: argparse.Namespace) -> int:
+    """Display discovered local network interfaces."""
+    try:
+        result = discover_interfaces()
+    except OSError as exc:
+        print(f"Error: interface discovery failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print(f"Interface discovery source: {result['source']}")
+        print(f"Detail level: {result['detail_level']}")
+        for interface in result["interfaces"]:
+            if isinstance(interface, dict):
+                if "index" in interface:
+                    print(f"- {interface['name']} (index {interface['index']})")
+                else:
+                    print(
+                        f"- {interface['name']}: "
+                        f"up={interface['is_up']}, mtu={interface['mtu']}, "
+                        f"speed={interface['speed_mbps']} Mbps, "
+                        f"MAC={interface['mac_address'] or '-'}"
+                    )
+                    for address in interface["addresses"]:
+                        print(
+                            f"    {address['family']}: {address['address']}"
+                        )
+        for address in result.get("host_addresses", []):
+            print(f"- Host {address['family']}: {address['address']}")
+        if result.get("note"):
+            print(result["note"])
+    return 0
+
+
 def main() -> int:
     """CLI entry point."""
 
@@ -563,6 +707,10 @@ def main() -> int:
         return run_udp_test_command(args)
     if args.command == "benchmark":
         return run_benchmark_command(args)
+    if args.command == "history":
+        return run_history_command(args)
+    if args.command == "interfaces":
+        return run_interfaces_command(args)
 
     parser.print_help()
     return 1
